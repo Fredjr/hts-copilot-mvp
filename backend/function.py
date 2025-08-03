@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException
+import functions_framework
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
@@ -88,6 +89,48 @@ async def test_storage() -> Dict[str, Any]:
             "status": "error",
             "message": f"Storage connection failed: {str(e)}"
         }
+
+# Google Cloud Functions entry point
+@functions_framework.http
+def hts_copilot_api(request):
+    """HTTP Cloud Function entry point for HTS Co-pilot API"""
+    import asyncio
+    from fastapi import Request
+    from fastapi.responses import Response
+    
+    # Convert Google Cloud Function request to FastAPI request
+    async def handle_request():
+        # Create a mock FastAPI request
+        scope = {
+            "type": "http",
+            "method": request.method,
+            "path": request.path,
+            "headers": [(k.lower(), v) for k, v in request.headers.items()],
+            "query_string": request.query_string.encode(),
+        }
+        
+        # Route to appropriate FastAPI endpoint
+        if request.path == "/":
+            return await root()
+        elif request.path == "/health":
+            return await health_check()
+        elif request.path == "/api/status":
+            return await api_status()
+        elif request.path == "/api/storage/test":
+            return await test_storage()
+        else:
+            return {"error": "Endpoint not found", "path": request.path}
+    
+    # Run the async function
+    result = asyncio.run(handle_request())
+    
+    # Convert FastAPI response to Google Cloud Function response
+    import json
+    return Response(
+        json.dumps(result),
+        status=200,
+        headers={"Content-Type": "application/json"}
+    )
 
 if __name__ == "__main__":
     uvicorn.run(
