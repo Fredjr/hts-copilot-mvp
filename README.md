@@ -48,4 +48,19 @@ hts-copilot/
 3. Error detection (edge effects, signal drop-offs)
 4. AI-powered experiment summary
 5. Interactive report generation
-6. User authentication and data management 
+6. User authentication and data management
+
+## Deployment Status
+
+### ✅ Sprint 0: Foundation Complete
+- [x] GitHub repository setup
+- [x] Next.js frontend scaffolded
+- [x] FastAPI backend scaffolded
+- [x] GitHub Actions CI/CD pipeline
+- [x] AWS Lambda configuration
+- [x] Vercel deployment setup
+
+### 🔄 Next Steps
+- [ ] Configure GitHub Secrets (AWS, Vercel)
+- [ ] Test deployment pipeline
+- [ ] Sprint 1: Core Features 
