@@ -1,0 +1,121 @@
+service: hts-copilot-api
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.11
+  region: ${env:AWS_REGION, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
+  environment:
+    STAGE: ${self:provider.stage}
+    AWS_REGION: ${self:provider.region}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+          Resource: 
+            - "arn:aws:s3:::hts-copilot-uploads/*"
+            - "arn:aws:s3:::hts-copilot-results/*"
+        - Effect: Allow
+          Action:
+            - rds:DescribeDBInstances
+            - rds:DescribeDBClusters
+          Resource: "*"
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
+    layer:
+      name: python-deps
+      description: Python dependencies for HTS Co-pilot API
+    noDeploy:
+      - coverage
+      - pytest
+      - pytest-asyncio
+      - httpx
+      - black
+      - isort
+      - flake8
+
+functions:
+  api:
+    handler: main.handler
+    events:
+      - httpApi:
+          path: /{proxy+}
+          method: '*'
+    environment:
+      CORS_ORIGINS: ${env:CORS_ORIGINS, 'http://localhost:3000,https://hts-copilot.vercel.app'}
+      DATABASE_URL: ${env:DATABASE_URL}
+      AWS_S3_BUCKET: ${env:AWS_S3_BUCKET, 'hts-copilot-uploads'}
+      ANTHROPIC_API_KEY: ${env:ANTHROPIC_API_KEY}
+    timeout: 30
+    memorySize: 512
+
+resources:
+  Resources:
+    # S3 Buckets
+    UploadBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: hts-copilot-uploads-${self:provider.stage}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders: ['*']
+              AllowedMethods: [GET, POST, PUT, DELETE]
+              AllowedOrigins: ['*']
+              MaxAge: 3000
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+
+    ResultsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: hts-copilot-results-${self:provider.stage}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders: ['*']
+              AllowedMethods: [GET, POST, PUT, DELETE]
+              AllowedOrigins: ['*']
+              MaxAge: 3000
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+
+  Outputs:
+    ApiGatewayRestApiId:
+      Description: API Gateway REST API ID
+      Value: !Ref HttpApi
+      Export:
+        Name: ${self:service}-${self:provider.stage}-ApiGatewayRestApiId
+
+    ApiGatewayRestApiRootResourceId:
+      Description: API Gateway REST API root resource ID
+      Value: !GetAtt HttpApi.RootResourceId
+      Export:
+        Name: ${self:service}-${self:provider.stage}-ApiGatewayRestApiRootResourceId
+
+    UploadBucketName:
+      Description: S3 bucket for file uploads
+      Value: !Ref UploadBucket
+      Export:
+        Name: ${self:service}-${self:provider.stage}-UploadBucketName
+
+    ResultsBucketName:
+      Description: S3 bucket for analysis results
+      Value: !Ref ResultsBucket
+      Export:
+        Name: ${self:service}-${self:provider.stage}-ResultsBucketName 
